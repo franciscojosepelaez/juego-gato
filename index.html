@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gato Saltarin</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <div class="topbar" aria-label="Estado del juego">
+        <div class="meter">
+          <span>Vida</span>
+          <div class="health-track">
+            <div id="healthFill" class="health-fill"></div>
+          </div>
+        </div>
+        <div id="lives" class="status-pill">Vidas: 3</div>
+        <div id="score" class="status-pill">Puntos: 0</div>
+      </div>
+
+      <canvas id="gameCanvas" width="960" height="540" aria-label="Juego de plataformas 2D"></canvas>
+
+      <section id="overlay" class="overlay hidden" aria-live="polite">
+        <div class="dialog">
+          <h1 id="overlayTitle">Game Over</h1>
+          <p id="overlayText">Pulsa reiniciar para volver al principio.</p>
+          <button id="restartButton" type="button">Volver a jugar</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
