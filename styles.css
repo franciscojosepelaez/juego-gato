@@ -16,6 +16,7 @@ body {
   place-items: center;
   background:
     linear-gradient(#7dcfff 0%, #bdecff 58%, #9ce073 58%, #62b953 100%);
+  overscroll-behavior: none;
 }
 
 .game-shell {
@@ -71,6 +72,20 @@ body {
   text-align: center;
 }
 
+.sound-button {
+  min-width: 92px;
+  min-height: 36px;
+  margin-left: auto;
+  padding: 0 12px;
+  border-width: 2px;
+  border-radius: 6px;
+  background: #d8f3ff;
+}
+
+.sound-button[aria-pressed="true"] {
+  background: #ffd0cb;
+}
+
 canvas {
   display: block;
   width: min(960px, 100%);
@@ -80,6 +95,65 @@ canvas {
   border-radius: 8px;
   background: #8ed8ff;
   image-rendering: crisp-edges;
+  touch-action: none;
+  user-select: none;
+}
+
+.mobile-controls {
+  display: none;
+  width: min(960px, 100%);
+  margin: 10px auto 0;
+  padding: 12px;
+  border: 3px solid #26313a;
+  border-radius: 8px;
+  background: #fff7cf;
+  box-shadow: 0 4px 0 rgba(54, 91, 50, 0.25);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.show-touch-controls .mobile-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.control-zone {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.control-button {
+  width: 70px;
+  height: 70px;
+  min-height: 70px;
+  padding: 0;
+  border: 4px solid #26313a;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 5px 0 rgba(38, 49, 58, 0.25);
+  color: #26313a;
+  font-size: 1.65rem;
+  line-height: 1;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.control-button:active,
+.control-button.is-pressed {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 rgba(38, 49, 58, 0.25);
+}
+
+.control-button.jump {
+  background: #d8f3ff;
+}
+
+.control-button.attack {
+  background: #ffcf4c;
 }
 
 .overlay {
@@ -131,7 +205,7 @@ button:hover {
   background: #ffd966;
 }
 
-@media (max-width: 620px) {
+@media (max-width: 760px) {
   .game-shell {
     padding: 8px;
   }
@@ -142,6 +216,10 @@ button:hover {
     font-size: 0.9rem;
   }
 
+  .sound-button {
+    margin-left: 0;
+  }
+
   .meter {
     width: 100%;
   }
@@ -149,5 +227,41 @@ button:hover {
   .health-track {
     flex: 1;
     width: auto;
+  }
+
+  .show-touch-controls .mobile-controls {
+    gap: 10px;
+  }
+
+  .control-zone {
+    gap: 10px;
+  }
+
+  .control-button {
+    width: 64px;
+    height: 64px;
+    min-height: 64px;
+    font-size: 1.45rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-controls {
+    padding: 10px;
+  }
+
+  .show-touch-controls .mobile-controls {
+    gap: 8px;
+  }
+
+  .control-zone {
+    gap: 8px;
+  }
+
+  .control-button {
+    width: 56px;
+    height: 56px;
+    min-height: 56px;
+    border-width: 3px;
   }
 }

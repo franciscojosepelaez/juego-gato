@@ -9,6 +9,8 @@ const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlayTitle");
 const overlayText = document.getElementById("overlayText");
 const restartButton = document.getElementById("restartButton");
+const soundButton = document.getElementById("soundButton");
+const mobileControls = document.getElementById("mobileControls");
 
 // Configuración base del mundo y físicas.
 const WORLD = { width: 3200, height: 540 };
@@ -17,12 +19,15 @@ const FRICTION = 0.82;
 const MAX_HEALTH = 100;
 
 const keys = new Set();
+const virtualKeys = new Set();
 let lastTime = 0;
 let cameraX = 0;
 let score = 0;
 let lives = 3;
 let gameState = "playing";
 let finishTimer = 0;
+let audioContext = null;
+let soundMuted = localStorage.getItem("gatoSoundMuted") === "true";
 
 // Nivel completo: suelo, plataformas, obstáculos y caja final.
 const level = {
@@ -124,16 +129,20 @@ function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+function isPressed(key) {
+  return keys.has(key) || virtualKeys.has(key);
+}
+
 function isJumpPressed() {
-  return keys.has(" ") || keys.has("w") || keys.has("arrowup");
+  return isPressed(" ") || isPressed("w") || isPressed("arrowup");
 }
 
 // Entrada, movimiento y colisiones.
 function handleInput() {
   if (gameState !== "playing" || player.finishPose) return;
 
-  const left = keys.has("arrowleft") || keys.has("a");
-  const right = keys.has("arrowright") || keys.has("d");
+  const left = isPressed("arrowleft") || isPressed("a");
+  const right = isPressed("arrowright") || isPressed("d");
 
   if (left) {
     player.vx -= 0.65;
@@ -146,6 +155,7 @@ function handleInput() {
   if (isJumpPressed() && player.grounded) {
     player.vy = -14.5;
     player.grounded = false;
+    playSound("jump");
   }
 
   player.vx = Math.max(-6, Math.min(6, player.vx));
@@ -216,13 +226,16 @@ function damagePlayer(amount) {
   player.invulnerable = 80;
   player.vx = -player.dir * 5;
   player.vy = -7;
+  playSound("damage");
   addParticles(player.x + player.w / 2, player.y + 20, "#ff5f5f", 8);
 
   if (player.health <= 0) {
     lives -= 1;
+    playSound("life");
     if (lives <= 0) {
       lives = 0;
       gameState = "gameover";
+      playSound("gameover");
       showOverlay("Game Over", "El gato se ha quedado sin vidas.");
     } else {
       resetLevel(true);
@@ -247,6 +260,7 @@ function updateEnemies() {
     if (player.attackTimer > 8 && rectsOverlap(getAttackBox(), enemy)) {
       enemy.defeated = true;
       score += 150;
+      playSound("enemy");
       addParticles(enemy.x + enemy.w / 2, enemy.y + 18, "#ffd166", 12);
       updateHud();
       continue;
@@ -272,11 +286,13 @@ function updateCollectibles() {
     if (item.type === "mouse") {
       score += 100;
       player.health = Math.min(MAX_HEALTH, player.health + 22);
+      playSound("mouse");
       addParticles(item.x + 14, item.y + 12, "#d8f3ff", 10);
     } else {
       score += 35;
       player.health = Math.min(MAX_HEALTH, player.health + 12);
       player.distractionTimer = 55;
+      playSound("yarn");
       addParticles(item.x + 14, item.y + 12, "#f07ab8", 12);
     }
     updateHud();
@@ -307,6 +323,122 @@ function addParticles(x, y, color, count) {
   }
 }
 
+// Sonidos sinteticos con Web Audio API para funcionar sin archivos externos.
+function ensureAudio() {
+  if (audioContext) return audioContext;
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return null;
+  audioContext = new AudioCtor();
+  return audioContext;
+}
+
+function unlockAudio() {
+  const context = ensureAudio();
+  if (context && context.state === "suspended") {
+    context.resume();
+  }
+}
+
+function setSoundMuted(muted) {
+  soundMuted = muted;
+  localStorage.setItem("gatoSoundMuted", String(soundMuted));
+  if (soundButton) {
+    soundButton.textContent = soundMuted ? "Silencio" : "Sonido";
+    soundButton.setAttribute("aria-pressed", String(soundMuted));
+  }
+}
+
+function playTone(frequency, duration, type = "sine", volume = 0.08, delay = 0) {
+  if (soundMuted) return;
+  const context = ensureAudio();
+  if (!context || context.state !== "running") return;
+
+  const start = context.currentTime + delay;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.02);
+}
+
+function playSweep(from, to, duration, type = "sine", volume = 0.08) {
+  if (soundMuted) return;
+  const context = ensureAudio();
+  if (!context || context.state !== "running") return;
+
+  const start = context.currentTime;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(from, start);
+  oscillator.frequency.exponentialRampToValueAtTime(to, start + duration);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.02);
+}
+
+function playSound(name) {
+  switch (name) {
+    case "jump":
+      playSweep(320, 720, 0.12, "triangle", 0.07);
+      break;
+    case "attack":
+      playSweep(760, 190, 0.08, "sawtooth", 0.045);
+      break;
+    case "damage":
+      playSweep(180, 80, 0.16, "square", 0.055);
+      break;
+    case "enemy":
+      playTone(260, 0.06, "square", 0.06);
+      playTone(520, 0.08, "triangle", 0.055, 0.06);
+      break;
+    case "mouse":
+      playTone(740, 0.05, "triangle", 0.06);
+      playTone(980, 0.07, "triangle", 0.055, 0.06);
+      break;
+    case "yarn":
+      playTone(520, 0.06, "sine", 0.055);
+      playTone(650, 0.08, "sine", 0.05, 0.07);
+      break;
+    case "life":
+      playSweep(220, 120, 0.2, "triangle", 0.065);
+      break;
+    case "box":
+      playTone(330, 0.08, "triangle", 0.06);
+      playTone(495, 0.08, "triangle", 0.055, 0.08);
+      break;
+    case "victory":
+      playTone(523, 0.09, "triangle", 0.06);
+      playTone(659, 0.09, "triangle", 0.06, 0.1);
+      playTone(784, 0.16, "triangle", 0.06, 0.2);
+      break;
+    case "gameover":
+      playTone(220, 0.11, "sawtooth", 0.055);
+      playTone(165, 0.14, "sawtooth", 0.05, 0.12);
+      playTone(110, 0.18, "sawtooth", 0.045, 0.27);
+      break;
+    default:
+      break;
+  }
+}
+
+function triggerAttack() {
+  if (gameState === "playing" && player.attackTimer === 0 && !player.finishPose) {
+    player.attackTimer = 18;
+    playSound("attack");
+  }
+}
+
 // Caja de ataque del zarpazo, delante del gato según su dirección.
 function getAttackBox() {
   return {
@@ -325,6 +457,7 @@ function startFinishSequence() {
   player.vx = 0;
   player.vy = -8;
   score += 500;
+  playSound("box");
   addParticles(level.goal.x + 55, level.goal.y + 20, "#ffcf4c", 24);
   updateHud();
 }
@@ -333,6 +466,7 @@ function updateFinishSequence() {
   if (gameState !== "finished") return;
   finishTimer += 1;
   if (finishTimer === 95) {
+    playSound("victory");
     showOverlay("¡Has terminado el nivel!", "El gato encontró la caja perfecta.");
   }
 }
@@ -656,26 +790,101 @@ function gameLoop(timestamp = 0) {
   requestAnimationFrame(gameLoop);
 }
 
+function updateTouchControlsVisibility() {
+  const hasTouch = navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches;
+  const smallScreen = window.matchMedia("(max-width: 760px)").matches;
+  document.body.classList.toggle("show-touch-controls", hasTouch || smallScreen);
+}
+
+function pressVirtualControl(control, button) {
+  unlockAudio();
+  button.classList.add("is-pressed");
+
+  if (control === "left") virtualKeys.add("arrowleft");
+  if (control === "right") virtualKeys.add("arrowright");
+  if (control === "jump") virtualKeys.add("arrowup");
+  if (control === "attack") triggerAttack();
+}
+
+function releaseVirtualControl(control, button) {
+  button.classList.remove("is-pressed");
+
+  if (control === "left") virtualKeys.delete("arrowleft");
+  if (control === "right") virtualKeys.delete("arrowright");
+  if (control === "jump") virtualKeys.delete("arrowup");
+}
+
+function setupMobileControls() {
+  if (!mobileControls) return;
+
+  for (const button of mobileControls.querySelectorAll("[data-control]")) {
+    const control = button.dataset.control;
+
+    button.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      button.setPointerCapture(event.pointerId);
+      pressVirtualControl(control, button);
+    });
+
+    button.addEventListener("pointerup", (event) => {
+      event.preventDefault();
+      releaseVirtualControl(control, button);
+    });
+
+    button.addEventListener("pointercancel", (event) => {
+      event.preventDefault();
+      releaseVirtualControl(control, button);
+    });
+
+    button.addEventListener("lostpointercapture", () => {
+      releaseVirtualControl(control, button);
+    });
+
+    button.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+    });
+  }
+}
+
 window.addEventListener("keydown", (event) => {
+  unlockAudio();
   const key = event.key.toLowerCase();
   if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
     event.preventDefault();
   }
   keys.add(key);
 
-  if (key === "j" && gameState === "playing" && player.attackTimer === 0 && !player.finishPose) {
-    player.attackTimer = 18;
-  }
+  if (key === "j") triggerAttack();
 });
 
 window.addEventListener("keyup", (event) => {
   keys.delete(event.key.toLowerCase());
 });
 
+window.addEventListener("pointerdown", unlockAudio, { once: true });
+window.addEventListener("touchstart", unlockAudio, { once: true, passive: true });
+window.addEventListener("resize", updateTouchControlsVisibility);
+window.addEventListener("orientationchange", updateTouchControlsVisibility);
+
+canvas.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
+
+if (soundButton) {
+  soundButton.addEventListener("click", () => {
+    unlockAudio();
+    setSoundMuted(!soundMuted);
+  });
+}
+
 restartButton.addEventListener("click", () => {
+  unlockAudio();
   lives = 3;
   resetLevel(false);
 });
 
+setSoundMuted(soundMuted);
+setupMobileControls();
+updateTouchControlsVisibility();
 resetLevel(false);
 requestAnimationFrame(gameLoop);

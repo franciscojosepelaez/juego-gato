@@ -17,9 +17,21 @@
         </div>
         <div id="lives" class="status-pill">Vidas: 3</div>
         <div id="score" class="status-pill">Puntos: 0</div>
+        <button id="soundButton" class="sound-button" type="button" aria-pressed="false">Sonido</button>
       </div>
 
       <canvas id="gameCanvas" width="960" height="540" aria-label="Juego de plataformas 2D"></canvas>
+
+      <nav id="mobileControls" class="mobile-controls" aria-label="Controles táctiles">
+        <div class="control-zone movement-controls">
+          <button class="control-button" type="button" data-control="left" aria-label="Mover a la izquierda">←</button>
+          <button class="control-button" type="button" data-control="right" aria-label="Mover a la derecha">→</button>
+        </div>
+        <div class="control-zone action-controls">
+          <button class="control-button jump" type="button" data-control="jump" aria-label="Saltar">↑</button>
+          <button class="control-button attack" type="button" data-control="attack" aria-label="Zarpazo">J</button>
+        </div>
+      </nav>
 
       <section id="overlay" class="overlay hidden" aria-live="polite">
         <div class="dialog">
